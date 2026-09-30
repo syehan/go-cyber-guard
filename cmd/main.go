@@ -27,7 +27,7 @@ func main() {
 	// 2. Init Fiber app
 	app := fiber.New(fiber.Config{
 		AppName:      cfg.AppName,
-		ServerHeader: "PLNMobile-Cyber-Guard",
+		ServerHeader: "Cyber-Mobile-Guard",
 	})
 
 	// 3. Middlewares
@@ -52,7 +52,7 @@ func main() {
 
 	// 4. Init Controller & Routes
 	cyberGuardCtl := controller.NewCyberGuardController(cfg)
-	router.InitRoutes(app, cyberGuardCtl)
+	router.InitRoutes(app, cyberGuardCtl, cfg)
 
 	// 5. Graceful shutdown handler
 	sigChan := make(chan os.Signal, 1)

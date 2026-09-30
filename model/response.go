@@ -23,3 +23,11 @@ type PINValidationResponse struct {
 	TotalIssues int               `json:"total_issues"`
 	Violations  []ViolationDetail `json:"violations,omitempty"`
 }
+
+// Dummy Model Request untuk pengujian Anomali Parameters
+type PaymentOrderRequest struct {
+	OrderID     string  `json:"order_id" query:"order_id" form:"order_id"`
+	Amount      float64 `json:"amount" query:"amount" form:"amount"`
+	CustomerID  string  `json:"customer_id" query:"customer_id" form:"customer_id"`
+	PaymentType string  `json:"payment_type" query:"payment_type" form:"payment_type"`
+}

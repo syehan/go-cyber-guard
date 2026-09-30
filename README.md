@@ -1,15 +1,25 @@
-# PLN Mobile Cyber Guard
+# Cyber Mobile Guard
 
-Service keamanan backend berbasis **Golang** yang mengadopsi standar arsitektur **PLN Mobile** (Fiber v2, Viper configuration, graceful shutdown) yang bertugas memvalidasi berbagai lapisan keamanan input data dan request API.
+Service keamanan backend berbasis **Golang** yang mengadopsi standar arsitektur microservices modern (Fiber v2, Viper configuration, graceful shutdown) yang bertugas memvalidasi berbagai lapisan keamanan input data dan request API.
+
+Semua validasi keamanan di project ini dirancang sebagai **Middleware Fiber siap pakai (`middleware.*`)**, sehingga developer tinggal memasangnya di route endpoint masing-masing.
 
 ---
 
-## 🛡️ Daftar Modul Validasi Keamanan
+## 🛡️ Daftar Modul Validasi Keamanan (Middleware)
 
-Berikut adalah modul-modul validasi keamanan yang telah aktif pada project ini:
+Berikut adalah modul-modul middleware keamanan yang telah aktif pada project ini:
 
-### 1. Modul Validasi Pola PIN (`POST /api/v1/cyber-guard/security/pin/validate`)
-Satu API terpadu yang memvalidasi PIN 6-digit dari berbagai pola rentan/lemah yang umum digunakan oleh user dan rentan terhadap serangan brute force / social engineering:
+---
+
+### 1. Modul Validasi Pola PIN (`middleware.PINSecurityGuard`)
+* **Fungsi:** Memvalidasi PIN 6-digit dari berbagai pola rentan/lemah yang umum digunakan oleh user dan rentan terhadap serangan brute force / dictionary attack.
+* **Penggunaan oleh Developer:**
+  ```go
+  app.Post("/api/v1/auth/setup-pin", middleware.PINSecurityGuard(true), myController.SetupPIN)
+  ```
+* **Endpoint Uji Coba Dummy:** `POST /api/v1/cyber-guard/security/pin/validate`
+* **Daftar Pola Terlarang:**
 
 | Kode Pelanggaran | Aturan & Pola yang Dilarang | Contoh Pola Terlarang |
 |---|---|---|
@@ -28,6 +38,68 @@ Satu API terpadu yang memvalidasi PIN 6-digit dari berbagai pola rentan/lemah ya
 
 ---
 
+### 2. Modul Pengecekan Duplicate Parameters (`middleware.DuplicateParamGuard`)
+* **Fungsi:** Mencegah serangan **HTTP Parameter Pollution (HPP)** dan **JSON / Header Smuggling** akibat duplikasi parameter nama yang sama.
+* **Cakupan Proteksi:**
+  1. **URL Query String:** Menolak request jika ada duplikasi parameter query (contoh: `?account_id=123&account_id=456`).
+  2. **HTTP Headers:** Menolak request jika ada duplikasi nama header kustom.
+  3. **Request Body (JSON & Form):** Menolak JSON payload yang memiliki duplicate keys pada level objek yang sama (contoh: `{"amount": 1000, "amount": 50000}`).
+* **Penggunaan oleh Developer:**
+  ```go
+  // Pasang global untuk seluruh route
+  app.Use(middleware.DuplicateParamGuard())
+
+  // Atau pasang di route spesifik
+  app.Post("/api/v1/payment/checkout", middleware.DuplicateParamGuard(), myController.Checkout)
+  ```
+* **Endpoint Uji Coba Dummy:** `POST /api/v1/cyber-guard/security/params/check-duplicates`
+* **Daftar Kode Pelanggaran:**
+
+| Kode Pelanggaran | Target | Contoh Skenario Serangan / Kesalahan |
+|---|---|---|
+| `ERR_DUPLICATE_QUERY_PARAM` | URL Query | `?user_id=10&role=user&user_id=20` |
+| `ERR_DUPLICATE_HEADER` | HTTP Headers | Header ganda: `X-User-Role: user` dan `X-User-Role: admin` |
+| `ERR_DUPLICATE_BODY_KEY` | JSON Body | `{"target": "accA", "target": "accB"}` |
+| `ERR_DUPLICATE_FORM_PARAM` | Form URL-Encoded | `param=val1&param=val2` |
+
+---
+
+### 3. Modul Pengecekan Anomali Parameters (`middleware.AnomalyParamGuard`)
+* **Fungsi:** Mendeteksi parameter siluman / tidak dikenal (*unknown parameters*) baik di URL Query maupun JSON Body, serta memvalidasi Header HTTP terhadap **Whitelist** dan **Blocklist** yang dikonfigurasi melalui `.env`.
+* **Cakupan Proteksi:**
+  1. **URL Query & Body Anomaly:** Secara otomatis membaca tag struct model (tag `json`, `query`, `form`) yang didefinisikan oleh developer. Jika client mengirim parameter yang tidak terdaftar di struct model (misal `is_admin=true`, `role=superuser`), request akan langsung **ditolak**.
+  2. **Header Blocklist (.env):** Memblokir request yang mengandung header berbahaya/dilarang seperti `X-Forwarded-Host`, `X-Rewrite-URL`, `X-Original-URL`, `X-Admin-Override`.
+  3. **Header Whitelist (.env):** Membatasi daftar custom header yang diizinkan selain standard HTTP headers.
+* **Konfigurasi `.env`:**
+  ```env
+  SECURITY_HEADER_BLOCKLIST="x-forwarded-host,x-original-url,x-rewrite-url,x-admin-override,x-debug-mode,x-http-method-override"
+  SECURITY_HEADER_WHITELIST="content-type,authorization,accept,x-app-version,x-platform,x-request-id,x-signature,x-timestamp"
+  ```
+* **Penggunaan oleh Developer:**
+  ```go
+  // Cukup masukkan struct model request Anda ke konfigurasi middleware
+  app.Post("/api/v1/payment/charge",
+      middleware.AnomalyParamGuard(middleware.AnomalyGuardConfig{
+          RequestModel:    model.PaymentOrderRequest{}, // Hanya field order_id, amount, customer_id, payment_type
+          HeaderBlocklist: cfg.HeaderBlocklist,
+          HeaderWhitelist: cfg.HeaderWhitelist,
+      }),
+      myController.ChargePayment,
+  )
+  ```
+* **Endpoint Uji Coba Dummy:** `ALL /api/v1/cyber-guard/security/params/check-anomalies`
+  *(Model acuan pengujian: `order_id`, `amount`, `customer_id`, `payment_type`)*
+* **Daftar Kode Pelanggaran:**
+
+| Kode Pelanggaran | Target | Contoh Skenario Pelanggaran |
+|---|---|---|
+| `ERR_ANOMALY_QUERY_PARAM` | URL Query | `?order_id=123&is_admin=true` (`is_admin` tidak ada di model) |
+| `ERR_ANOMALY_BODY_PARAM` | JSON Body | `{"order_id": "1", "role": "admin"}` (`role` tidak ada di model) |
+| `ERR_ANOMALY_HEADER_BLOCKLISTED` | HTTP Headers | Mengirim header `X-Admin-Override: true` atau `X-Original-URL` |
+| `ERR_ANOMALY_HEADER_NOT_WHITELISTED` | HTTP Headers | Mengirim custom header asing yang tidak terdaftar di whitelist |
+
+---
+
 ## 🚀 Menjalankan Service
 
 ### 1. Menjalankan Unit Test
@@ -37,68 +109,27 @@ go test -v ./...
 
 ### 2. Menjalankan Server
 ```bash
-go run main.go
+go run cmd/main.go
 ```
-*Server akan mendengarkan pada port `8085` (dapat dikonfigurasi melalui file `.env`).*
+*Server berjalan pada port `8085` (dapat dikonfigurasi melalui file `.env`).*
 
 ---
 
-## 📮 Dokumentasi API & Pengujian Postman
+## 📮 Koleksi Postman & Panduan Pengujian
 
-File konfigurasi Postman siap pakai tersedia di:
-`postman_collection.json`
+File koleksi Postman siap pakai: `postman_collection.json`
 
-### Endpoint: Validasi Pola PIN
-- **URL:** `http://localhost:8085/api/v1/cyber-guard/security/pin/validate`
-- **Method:** `POST`
-- **Header:** `Content-Type: application/json`
+### 1. Uji Validasi PIN
+- **URL:** `POST http://localhost:8085/api/v1/cyber-guard/security/pin/validate`
+- **Body:** `{"pin": "123456"}` -> Response HTTP `422 Unprocessable Entity`
+- **Body:** `{"pin": "947215"}` -> Response HTTP `200 OK`
 
-#### Contoh Request:
-```json
-{
-  "pin": "123456"
-}
-```
+### 2. Uji Duplicate Parameters
+- **URL:** `GET http://localhost:8085/api/v1/cyber-guard/security/params/check-duplicates?order_id=101&order_id=999` -> HTTP `400 Bad Request`
+- **URL:** `POST http://localhost:8085/api/v1/cyber-guard/security/params/check-duplicates` dengan body `{"amount": 100, "amount": 200}` -> HTTP `400 Bad Request`
 
-#### Contoh Response (Gagal / Ditolak - HTTP 422):
-```json
-{
-  "response_code": "01",
-  "message": "PIN ditolak karena mengandung pola lemah atau dilarang",
-  "data": {
-    "pin": "123456",
-    "is_valid": false,
-    "total_issues": 3,
-    "violations": [
-      {
-        "code": "ERR_SEQUENTIAL_ASC",
-        "rule": "Urutan Angka Naik (contoh: 123456, 234567)",
-        "message": "PIN tidak boleh berupa urutan angka naik berurutan (contoh: 123456, 234567)"
-      },
-      {
-        "code": "ERR_KEYPAD_STRAIGHT",
-        "rule": "Pola Garis Lurus Keypad HP/ATM (contoh: 147258, 258014)",
-        "message": "PIN tidak boleh berupa pola garis lurus tombol keypad (contoh: 258014, 147258)"
-      },
-      {
-        "code": "ERR_COMMON_WEAK_PIN",
-        "rule": "Daftar PIN Sangat Populer / Mudah Ditebak",
-        "message": "PIN termasuk daftar PIN sangat umum / mudah ditebak"
-      }
-    ]
-  }
-}
-```
-
-#### Contoh Response (Berhasil / Valid - HTTP 200):
-```json
-{
-  "response_code": "00",
-  "message": "PIN valid dan memenuhi standar keamanan PLN Mobile",
-  "data": {
-    "pin": "947215",
-    "is_valid": true,
-    "total_issues": 0
-  }
-}
-```
+### 3. Uji Anomaly Parameters
+- **URL:** `POST http://localhost:8085/api/v1/cyber-guard/security/params/check-anomalies?hacker_query=true` -> HTTP `400 Bad Request` (`ERR_ANOMALY_QUERY_PARAM`)
+- **Body:** `{"order_id": "ORD-1", "unexpected_payload": "hack"}` -> HTTP `400 Bad Request` (`ERR_ANOMALY_BODY_PARAM`)
+- **Header:** `X-Admin-Override: true` -> HTTP `400 Bad Request` (`ERR_ANOMALY_HEADER_BLOCKLISTED`)
+- **Permintaan Sah:** Body `{"order_id": "ORD-1", "amount": 25000}` tanpa header terlarang -> HTTP `200 OK`
