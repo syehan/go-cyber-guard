@@ -1,0 +1,139 @@
+{
+	"info": {
+		"_postman_id": "c1f7b889-1e30-4e3a-97a6-plnmobile-cyberguard",
+		"name": "PLN Mobile Cyber Guard - Security APIs",
+		"description": "Koleksi Postman untuk pengujian modul-modul security PLN Mobile Cyber Guard",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8085/health",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "8085",
+					"path": ["health"]
+				}
+			}
+		},
+		{
+			"name": "Modul 1: Security PIN - Validasi Pola PIN (123456)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"pin\": \"123456\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8085/api/v1/cyber-guard/security/pin/validate",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "8085",
+					"path": ["api", "v1", "cyber-guard", "security", "pin", "validate"]
+				}
+			}
+		},
+		{
+			"name": "Modul 1: Security PIN - Validasi Pola PIN (111222)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"pin\": \"111222\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8085/api/v1/cyber-guard/security/pin/validate",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "8085",
+					"path": ["api", "v1", "cyber-guard", "security", "pin", "validate"]
+				}
+			}
+		},
+		{
+			"name": "Modul 1: Security PIN - Validasi Pola PIN (112233)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"pin\": \"112233\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8085/api/v1/cyber-guard/security/pin/validate",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "8085",
+					"path": ["api", "v1", "cyber-guard", "security", "pin", "validate"]
+				}
+			}
+		},
+		{
+			"name": "Modul 1: Security PIN - Validasi Pola PIN (000000)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"pin\": \"000000\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8085/api/v1/cyber-guard/security/pin/validate",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "8085",
+					"path": ["api", "v1", "cyber-guard", "security", "pin", "validate"]
+				}
+			}
+		},
+		{
+			"name": "Modul 1: Security PIN - Validasi Pola PIN (Valid / Kuat)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"pin\": \"947215\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8085/api/v1/cyber-guard/security/pin/validate",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "8085",
+					"path": ["api", "v1", "cyber-guard", "security", "pin", "validate"]
+				}
+			}
+		}
+	]
+}
